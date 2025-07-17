@@ -1,17 +1,20 @@
-const config = {
-  development: {
-    API_URL: 'http://localhost:3001',
-    SOCKET_URL: 'http://localhost:3001'
-  },
-  production: {
-    API_URL: 'https://your-backend-url.railway.app',
-    SOCKET_URL: 'wss://your-backend-url.railway.app'
-  }
+// Simple configuration that works with Vite's built-in env handling
+const isDevelopment = import.meta.env.DEV
+const isProduction = import.meta.env.PROD
+
+// Update URLs for Vercel deployment
+const API_URL = isDevelopment 
+  ? 'http://localhost:3001'
+  : 'https://your-backend-domain.vercel.app'
+
+const SOCKET_URL = isDevelopment
+  ? 'http://localhost:3001' 
+  : 'https://your-backend-domain.vercel.app'
+
+export const ENV = {
+  API_URL,
+  SOCKET_URL
 }
-
-const environment = import.meta.env.MODE || 'development'
-
-export const ENV = config[environment]
 
 export const generateGuestId = () => {
   const adjectives = ['Happy', 'Coding', 'Swift', 'Bright', 'Cool', 'Smart', 'Quick', 'Sharp']

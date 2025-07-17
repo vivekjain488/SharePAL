@@ -6,9 +6,17 @@
   * {
     @apply border-gray-200;
   }
-  body {
+  
+  html, body {
     @apply bg-gray-900 text-white;
     font-feature-settings: "rlig" 1, "calt" 1;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  #root {
+    min-height: 100vh;
   }
 }
 
@@ -80,6 +88,7 @@
 /* CodeMirror customization */
 .cm-editor {
   border-radius: 8px;
+  height: 100% !important;
 }
 
 .cm-editor.cm-focused {
@@ -93,4 +102,5 @@
 /* Toast customization */
 .toaster {
   --toaster-font-family: system-ui, -apple-system, sans-serif;
+  z-index: 100;
 }

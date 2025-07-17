@@ -53,14 +53,10 @@ app.use(limiter)
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-domain.vercel.app']
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000'],
   methods: ['GET', 'POST'],
   credentials: true
 }
-
-app.use(cors(corsOptions))
 
 // Socket.IO setup
 const io = new Server(server, {

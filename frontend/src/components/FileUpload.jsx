@@ -105,18 +105,35 @@ const FileUpload = () => {
 
   return (
     <motion.div 
-      className="glass-morphism rounded-xl p-4 h-full flex flex-col"
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5, delay: 0.1 }}
+      className="glass-morphism rounded-lg p-5 h-[28rem] flex flex-col shadow-lg border border-white/20 hover:border-white/30 transition-all duration-300"
+      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">File Upload</h2>
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/20">
+        <div className="flex items-center space-x-3">
+          <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+          <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full"></div>
+          <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+          <h2 className="text-lg font-semibold text-white ml-3 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+            File Upload
+          </h2>
+        </div>
+        {uploadedFile && (
+          <motion.button
+            onClick={clearFile}
+            className="px-3 py-1.5 text-sm rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all duration-200"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Clear
+          </motion.button>
+        )}
       </div>
       
-      {/* Main Upload Area */}
-      <div className="flex-1 mb-4">
+      {/* Upload Area */}
+      <div className="flex-1 mb-4 min-h-0">
         <AnimatePresence mode="wait">
           {!uploadedFile ? (
             <motion.div
@@ -124,10 +141,10 @@ const FileUpload = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full min-h-[220px]"
+              className="h-full"
             >
               <div
-                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 h-full flex flex-col justify-center items-center ${
+                className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 h-full flex flex-col items-center justify-center ${
                   isDragging 
                     ? 'border-blue-400 bg-blue-500/10 scale-105' 
                     : 'border-white/30 hover:border-white/50 hover:bg-white/5'
@@ -141,16 +158,13 @@ const FileUpload = () => {
                   transition={{ duration: 0.2 }}
                   className="flex flex-col items-center"
                 >
-                  <div className="text-5xl mb-4">
+                  <div className="text-6xl mb-6 filter drop-shadow-lg">
                     {isDragging ? '⬇️' : '📁'}
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {isDragging ? 'Drop your file here' : 'Drag & drop your file'}
+                  <h3 className="text-2xl font-semibold text-white mb-4">
+                    {isDragging ? 'Drop your file here!' : 'Drag & drop or click to browse'}
                   </h3>
-                  <p className="text-white/70 text-sm mb-4">
-                    Or click to browse files
-                  </p>
-                  <div className="text-xs text-white/50 bg-white/5 px-3 py-1 rounded-full">
+                  <div className="text-sm text-white/50 bg-white/5 px-6 py-3 rounded-full border border-white/10">
                     Maximum file size: 10MB
                   </div>
                 </motion.div>
@@ -168,45 +182,38 @@ const FileUpload = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="h-full min-h-[220px] flex flex-col space-y-4"
+              className="h-full flex flex-col space-y-4"
             >
-              {/* File Info Card */}
-              <div className="flex items-center space-x-4 p-4 bg-white/10 rounded-xl border border-white/20">
-                <div className="text-3xl">
+              {/* File Info */}
+              <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-white/10 to-white/5 rounded-lg border border-white/30">
+                <div className="text-4xl">
                   {getFileIcon(uploadedFile)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-white font-semibold text-base truncate mb-1">
+                  <h4 className="text-white font-semibold text-lg truncate mb-1">
                     {uploadedFile.name}
                   </h4>
-                  <p className="text-white/60 text-sm">
-                    {formatFileSize(uploadedFile.size)} • {uploadedFile.type || 'Unknown type'}
+                  <p className="text-white/60 text-base">
+                    {formatFileSize(uploadedFile.size)} • {uploadedFile.type?.split('/')[0] || 'Unknown type'}
                   </p>
                 </div>
-                <button
-                  onClick={clearFile}
-                  className="text-white/60 hover:text-white hover:bg-white/10 transition-all p-2 rounded-lg"
-                  title="Remove file"
-                >
-                  ✕
-                </button>
               </div>
 
               {/* File Preview */}
-              <div className="flex-1 bg-black/20 rounded-xl border border-white/10 overflow-hidden">
+              <div className="flex-1 bg-black/20 rounded-lg border border-white/10 overflow-hidden min-h-0">
                 {uploadedFile.type.startsWith('text/') || 
                  uploadedFile.name.match(/\.(js|jsx|ts|tsx|py|html|css|json|md|txt)$/i) ? (
                   <div className="h-full p-4">
-                    <h5 className="text-white/80 text-sm mb-3 font-medium">Preview:</h5>
-                    <pre className="text-white/70 text-xs overflow-auto h-full max-h-32 bg-black/30 p-3 rounded-lg">
-                      {fileContent.substring(0, 500)}
-                      {fileContent.length > 500 && '\n...'}
+                    <h5 className="text-white/80 text-base mb-3 font-medium">File Preview:</h5>
+                    <pre className="text-white/70 text-sm overflow-auto h-full bg-black/30 p-4 rounded leading-relaxed font-mono">
+                      {fileContent.substring(0, 800)}
+                      {fileContent.length > 800 && '\n\n... (showing first 800 characters)'}
                     </pre>
                   </div>
                 ) : uploadedFile.type.startsWith('image/') ? (
                   <div className="h-full p-4 flex flex-col">
-                    <h5 className="text-white/80 text-sm mb-3 font-medium">Preview:</h5>
-                    <div className="flex-1 flex items-center justify-center bg-black/30 rounded-lg">
+                    <h5 className="text-white/80 text-base mb-3 font-medium">Image Preview:</h5>
+                    <div className="flex-1 flex items-center justify-center bg-black/30 rounded min-h-0">
                       <img 
                         src={fileContent} 
                         alt="Preview" 
@@ -217,8 +224,10 @@ const FileUpload = () => {
                 ) : (
                   <div className="h-full flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-3xl mb-2">📦</div>
-                      <p className="text-white/60 text-sm">Binary file ready to share</p>
+                      <div className="text-5xl mb-4">📦</div>
+                      <p className="text-white/60 text-xl font-medium">Binary file ready to share</p>
+                      <p className="text-white/50 text-base mt-2">File content will be preserved when shared</p>
+                      <p className="text-white/40 text-sm mt-1">Click share to make it available to others</p>
                     </div>
                   </div>
                 )}
@@ -228,21 +237,17 @@ const FileUpload = () => {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Info & Button Section */}
-      <div className="flex items-center justify-between pt-3 border-t border-white/10">
-        <div className="flex items-center space-x-2 text-white/60 text-xs">
-          {uploadedFile ? (
+      {/* Bottom Section */}
+      <div className="flex items-center justify-between pt-3 border-t border-white/20">
+        <div className="flex items-center space-x-3 text-white/60 text-sm">
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${uploadedFile ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+            <span>{uploadedFile ? `Selected: ${uploadedFile.name}` : 'No file selected'}</span>
+          </div>
+          {uploadedFile && (
             <>
-              <span className="font-medium">File:</span>
-              <span className="truncate max-w-32">{uploadedFile.name}</span>
-              <span>•</span>
-              <span>{formatFileSize(uploadedFile.size)}</span>
-            </>
-          ) : (
-            <>
-              <span>No file selected</span>
-              <span>•</span>
-              <span>Max: 10MB</span>
+              <span className="text-white/30">•</span>
+              <span className="text-green-400 font-medium">{formatFileSize(uploadedFile.size)}</span>
             </>
           )}
         </div>
@@ -250,12 +255,11 @@ const FileUpload = () => {
         <motion.button
           onClick={handleShare}
           disabled={!uploadedFile || !fileContent}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium 
-                     hover:from-blue-600 hover:to-purple-700 transition-all duration-200 
-                     shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed
-                     disabled:hover:scale-100 disabled:hover:shadow-lg"
-          whileHover={{ scale: uploadedFile ? 1.05 : 1 }}
-          whileTap={{ scale: uploadedFile ? 0.95 : 1 }}
+          className="px-5 py-2 rounded-lg bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold text-sm
+                     hover:from-green-600 hover:to-blue-700 transition-all duration-300 
+                     shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          whileHover={{ scale: uploadedFile ? 1.03 : 1 }}
+          whileTap={{ scale: uploadedFile ? 0.97 : 1 }}
         >
           Share File
         </motion.button>
