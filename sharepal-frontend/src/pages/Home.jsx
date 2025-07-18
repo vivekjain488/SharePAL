@@ -6,7 +6,7 @@ import StatusBar from '../components/StatusBar.jsx'
 import { TextGenerateEffect } from '../components/ui/TextGenerateEffect.jsx'
 
 const Home = () => {
-  const description = "Share text and files instantly with real-time collaboration. Content stays visible until someone replaces it. No accounts needed, just start sharing!"
+  const description = "A shared clipboard for text and files - collaborate in real time with live updates. No sign-up, no hassle."
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black relative">
