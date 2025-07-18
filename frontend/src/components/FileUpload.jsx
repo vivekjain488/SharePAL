@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../context/AppContext.jsx'
 import { validateFile, formatFileSize } from '../utils/helpers.js'
 import toast from 'react-hot-toast'
+import JSZip from 'jszip'
 
 const FileUpload = () => {
   const { shareFile, isConnected, sharedFile, clearSharedFile, isSharing } = useApp()
@@ -10,6 +11,7 @@ const FileUpload = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]) // Changed to array for multiple files
   const [isViewingShared, setIsViewingShared] = useState(false)
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false)
+  const [isCreatingZip, setIsCreatingZip] = useState(false)
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault()
@@ -111,6 +113,80 @@ const FileUpload = () => {
       icon: '🗑️',
       duration: 2000
     })
+  }
+
+  // Download individual file
+  const handleDownloadFile = (file, index) => {
+    try {
+      const url = URL.createObjectURL(file)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success(`${file.name} downloaded!`, {
+        icon: '⬇️',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Download error:', error)
+      toast.error('Failed to download file')
+    }
+  }
+
+  // Download all files as ZIP
+  const handleDownloadAllFiles = async () => {
+    if (uploadedFiles.length === 0) {
+      toast.error('No files to download')
+      return
+    }
+
+    if (uploadedFiles.length === 1) {
+      // If only one file, download it directly
+      handleDownloadFile(uploadedFiles[0], 0)
+      return
+    }
+
+    setIsCreatingZip(true)
+    toast.loading('Creating ZIP archive...', { id: 'zip-creation' })
+
+    try {
+      const zip = new JSZip()
+      
+      // Add each file to the ZIP
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const file = uploadedFiles[i]
+        const fileContent = await file.arrayBuffer()
+        zip.file(file.name, fileContent)
+      }
+
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      
+      // Download ZIP file
+      const url = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `SharePAL_Files_${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success(`${uploadedFiles.length} files downloaded as ZIP!`, {
+        icon: '📦',
+        duration: 3000,
+        id: 'zip-creation'
+      })
+    } catch (error) {
+      console.error('ZIP creation error:', error)
+      toast.error('Failed to create ZIP file', { id: 'zip-creation' })
+    } finally {
+      setIsCreatingZip(false)
+    }
   }
 
   const handleDownloadShared = () => {
@@ -275,6 +351,27 @@ const FileUpload = () => {
             )}
           </div>
           
+          {/* Download All Button */}
+          {uploadedFiles.length > 0 && !isViewingShared && (
+            <button
+              onClick={handleDownloadAllFiles}
+              disabled={isCreatingZip}
+              className="text-green-400 hover:text-green-300 text-sm px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 transition-colors disabled:opacity-50 flex items-center space-x-1"
+            >
+              {isCreatingZip ? (
+                <>
+                  <div className="w-3 h-3 border border-green-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Creating ZIP...</span>
+                </>
+              ) : (
+                <>
+                  <span>📦</span>
+                  <span>Download All</span>
+                </>
+              )}
+            </button>
+          )}
+          
           {uploadedFiles.length > 0 && !isViewingShared && (
             <button
               onClick={clearAllFiles}
@@ -399,12 +496,22 @@ const FileUpload = () => {
                                 </p>
                               </div>
                             </div>
-                            <button
-                              onClick={() => removeFile(index)}
-                              className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              Remove
-                            </button>
+                            <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleDownloadFile(file, index)}
+                                className="text-green-400 hover:text-green-300 text-xs px-2 py-1 rounded bg-green-500/10 hover:bg-green-500/20 transition-colors"
+                                title="Download this file"
+                              >
+                                ⬇️
+                              </button>
+                              <button
+                                onClick={() => removeFile(index)}
+                                className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                                title="Remove this file"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </motion.div>
                         ))}
                       </div>
