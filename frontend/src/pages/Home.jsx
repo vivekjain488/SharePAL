@@ -37,7 +37,7 @@ const Home = () => {
         >
           <TextGenerateEffect 
             words={description}
-            className="text-white/90 text-lg md:text-xl font-medium"
+            className="text-white/90 text-lg md:text-xl font-medium whitespace-nowrap"
             duration={0.3}
             filter={true}
           />
