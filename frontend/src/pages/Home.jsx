@@ -1,19 +1,19 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import CodeEditor from '../components/CodeEditor.jsx'
+import TextEditor from '../components/TextEditor.jsx'
 import FileUpload from '../components/FileUpload.jsx'
 import StatusBar from '../components/StatusBar.jsx'
 import { TextGenerateEffect } from '../components/ui/TextGenerateEffect.jsx'
 
 const Home = () => {
-  const description = "Share code snippets and files instantly with real-time collaboration. No accounts needed, just start sharing!"
+  const description = "Share text and files instantly with real-time collaboration. Content stays visible until someone replaces it. No accounts needed, just start sharing!"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black relative">
       {/* Status Bar */}
       <StatusBar />
 
-      {/* Hero Section - Simplified */}
+      {/* Hero Section */}
       <motion.div 
         className="text-center py-12"
         initial={{ y: -20, opacity: 0 }}
@@ -37,22 +37,22 @@ const Home = () => {
         >
           <TextGenerateEffect 
             words={description}
-            className="text-white/90 text-lg md:text-xl font-medium whitespace-nowrap"
+            className="text-white/90 text-lg md:text-xl font-medium"
             duration={0.3}
             filter={true}
           />
         </motion.div>
       </motion.div>
 
-      {/* Main Content - Updated Grid */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 pb-8">
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left Column - Code Editor */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left Column - Text Editor */}
           <div>
-            <CodeEditor />
+            <TextEditor />
           </div>
           
-          {/* Right Column - File Upload Only */}
+          {/* Right Column - File Upload */}
           <div>
             <FileUpload />
           </div>

@@ -36,7 +36,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:3001", "https://localhost:3001"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
@@ -53,10 +53,13 @@ app.use(limiter)
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
   methods: ['GET', 'POST'],
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
 }
+
+app.use(cors(corsOptions))
 
 // Socket.IO setup
 const io = new Server(server, {
@@ -64,36 +67,21 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
   allowEIO3: true,
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 1e8
 })
 
-// In-memory storage (in production, use Redis or database)
+// In-memory storage for persistent sharing
 const connectedUsers = new Map()
-const recentShares = []
-const MAX_SHARES = 100
-
-// Socket rate limiting map
 const socketRateLimit = new Map()
+
+// PERSISTENT STORAGE - This is what stays until replaced
+let currentSharedText = null
+let currentSharedFile = null
 
 // Utility functions
 const generateId = () => Math.random().toString(36).substr(2, 9)
-
-const addShare = (shareData) => {
-  const share = {
-    id: generateId(),
-    ...shareData,
-    timestamp: Date.now()
-  }
-  
-  recentShares.unshift(share)
-  
-  // Keep only the most recent shares
-  if (recentShares.length > MAX_SHARES) {
-    recentShares.splice(MAX_SHARES)
-  }
-  
-  return share
-}
 
 const getUserList = () => {
   return Array.from(connectedUsers.values())
@@ -122,7 +110,7 @@ io.on('connection', (socket) => {
 
   // User registration
   const userId = socket.handshake.query.userId || generateId()
-  const userName = socket.handshake.query.userName || userId
+  const userName = socket.handshake.query.userName || `User${Math.floor(Math.random() * 1000)}`
   
   const user = {
     id: userId,
@@ -133,121 +121,192 @@ io.on('connection', (socket) => {
   
   connectedUsers.set(socket.id, user)
   
-  // Notify others about new user
-  socket.broadcast.emit('user-joined', {
-    userId: user.id,
-    userName: user.name,
-    timestamp: Date.now()
-  })
+  // Send current online users count to all clients
+  io.emit('user-count', connectedUsers.size)
   
-  // Send current online users to the new user
-  socket.emit('online-users', getUserList())
+  // Send current persistent shared content to the new user
+  if (currentSharedText) {
+    socket.emit('current-shared-text', currentSharedText)
+  }
   
-  // Send recent shares to the new user
-  socket.emit('recent-shares', recentShares.slice(0, 20))
+  if (currentSharedFile) {
+    socket.emit('current-shared-file', currentSharedFile)
+  }
+  
+  console.log(`${userName} joined. Total users: ${connectedUsers.size}`)
 
-  // Handle code sharing
-  socket.on('share-code', (data) => {
+  // Handle text sharing - REPLACES current shared text
+  socket.on('share-text', (data, callback) => {
     try {
+      console.log('Received share-text event:', data)
+      
       // Rate limiting check
       if (!checkSocketRateLimit(socket.id)) {
-        socket.emit('error', { message: 'Rate limit exceeded. Please slow down.' })
+        const error = { success: false, error: 'Rate limit exceeded. Please slow down.' }
+        callback?.(error)
         return
       }
 
       // Validate data
       if (!data.content || typeof data.content !== 'string') {
-        socket.emit('error', { message: 'Invalid code content' })
+        const error = { success: false, error: 'Invalid text content' }
+        callback?.(error)
         return
       }
       
       if (data.content.length > 100000) { // 100KB limit
-        socket.emit('error', { message: 'Code content too large' })
+        const error = { success: false, error: 'Text content too large' }
+        callback?.(error)
         return
       }
       
-      const shareData = {
-        type: 'code',
+      // REPLACE the current shared text
+      currentSharedText = {
+        id: generateId(),
         content: data.content,
         userId: user.id,
-        userName: user.name
+        userName: user.name,
+        timestamp: Date.now()
       }
       
-      const share = addShare(shareData)
+      // Broadcast the new shared text to ALL connected clients
+      io.emit('shared-text-updated', currentSharedText)
       
-      // Broadcast to all connected clients
-      io.emit('code-shared', share)
+      // Send success response
+      const response = { success: true, shareId: currentSharedText.id }
+      callback?.(response)
       
-      console.log(`Code shared by ${user.name}`)
+      console.log(`Text shared by ${user.name} - replacing previous content`)
     } catch (error) {
-      console.error('Error sharing code:', error)
-      socket.emit('error', { message: 'Failed to share code' })
+      console.error('Error sharing text:', error)
+      const errorResponse = { success: false, error: 'Failed to share text' }
+      callback?.(errorResponse)
     }
   })
 
-  // Handle file sharing
-  socket.on('share-file', (data) => {
+  // Handle legacy share-code event for backward compatibility
+  socket.on('share-code', (data, callback) => {
     try {
+      console.log('Received share-code event (legacy):', data)
+      
       // Rate limiting check
       if (!checkSocketRateLimit(socket.id)) {
-        socket.emit('error', { message: 'Rate limit exceeded. Please slow down.' })
+        const error = { success: false, error: 'Rate limit exceeded. Please slow down.' }
+        callback?.(error)
+        return
+      }
+
+      // Validate data
+      if (!data.content || typeof data.content !== 'string') {
+        const error = { success: false, error: 'Invalid text content' }
+        callback?.(error)
+        return
+      }
+      
+      if (data.content.length > 100000) { // 100KB limit
+        const error = { success: false, error: 'Text content too large' }
+        callback?.(error)
+        return
+      }
+      
+      // REPLACE the current shared text
+      currentSharedText = {
+        id: generateId(),
+        content: data.content,
+        userId: user.id,
+        userName: user.name,
+        timestamp: Date.now()
+      }
+      
+      // Broadcast the new shared text to ALL connected clients
+      io.emit('shared-text-updated', currentSharedText)
+      
+      // Send success response
+      const response = { success: true, shareId: currentSharedText.id }
+      callback?.(response)
+      
+      console.log(`Code shared by ${user.name} - replacing previous content`)
+    } catch (error) {
+      console.error('Error sharing code:', error)
+      const errorResponse = { success: false, error: 'Failed to share code' }
+      callback?.(errorResponse)
+    }
+  })
+
+  // Handle file sharing - REPLACES current shared file
+  socket.on('share-file', (data, callback) => {
+    try {
+      console.log('Received share-file event:', data.fileName)
+      
+      // Rate limiting check
+      if (!checkSocketRateLimit(socket.id)) {
+        const error = { success: false, error: 'Rate limit exceeded. Please slow down.' }
+        callback?.(error)
         return
       }
 
       // Validate data
       if (!data.content || !data.fileName) {
-        socket.emit('error', { message: 'Invalid file data' })
+        const error = { success: false, error: 'Invalid file data' }
+        callback?.(error)
         return
       }
       
       if (data.content.length > 10000000) { // 10MB limit
-        socket.emit('error', { message: 'File too large' })
+        const error = { success: false, error: 'File too large' }
+        callback?.(error)
         return
       }
       
-      const shareData = {
-        type: 'file',
+      // REPLACE the current shared file
+      currentSharedFile = {
+        id: generateId(),
         fileName: data.fileName,
         fileSize: data.fileSize || 0,
         fileType: data.fileType || 'application/octet-stream',
         content: data.content,
         userId: user.id,
-        userName: user.name
+        userName: user.name,
+        timestamp: Date.now()
       }
       
-      const share = addShare(shareData)
+      // Broadcast the new shared file to ALL connected clients
+      io.emit('shared-file-updated', currentSharedFile)
       
-      // Broadcast to all connected clients
-      io.emit('file-shared', share)
+      // Send success response
+      const response = { success: true, shareId: currentSharedFile.id }
+      callback?.(response)
       
-      console.log(`File shared by ${user.name}: ${data.fileName} (${data.fileSize} bytes)`)
+      console.log(`File shared by ${user.name}: ${data.fileName} - replacing previous file`)
     } catch (error) {
       console.error('Error sharing file:', error)
-      socket.emit('error', { message: 'Failed to share file' })
+      const errorResponse = { success: false, error: 'Failed to share file' }
+      callback?.(errorResponse)
     }
   })
 
-  // Handle get online users request
-  socket.on('get-online-users', () => {
-    socket.emit('online-users', getUserList())
+  // Handle clearing shared text
+  socket.on('clear-shared-text', () => {
+    currentSharedText = null
+    io.emit('shared-text-cleared', { clearedBy: user.name })
+    console.log(`Shared text cleared by ${user.name}`)
   })
 
-  // Handle room joining (for future features)
-  socket.on('join-room', (roomId) => {
-    if (typeof roomId === 'string' && roomId.length <= 50) {
-      socket.join(roomId)
-      socket.emit('joined-room', { roomId })
-      console.log(`User ${user.name} joined room: ${roomId}`)
-    }
+  // Handle clearing shared file
+  socket.on('clear-shared-file', () => {
+    currentSharedFile = null
+    io.emit('shared-file-cleared', { clearedBy: user.name })
+    console.log(`Shared file cleared by ${user.name}`)
   })
 
-  // Handle room leaving
-  socket.on('leave-room', (roomId) => {
-    if (typeof roomId === 'string') {
-      socket.leave(roomId)
-      socket.emit('left-room', { roomId })
-      console.log(`User ${user.name} left room: ${roomId}`)
+  // Handle get current shared content
+  socket.on('get-current-content', () => {
+    const response = {
+      sharedText: currentSharedText,
+      sharedFile: currentSharedFile,
+      connectedUsers: connectedUsers.size
     }
+    socket.emit('current-content', response)
   })
 
   // Handle disconnect
@@ -261,15 +320,10 @@ io.on('connection', (socket) => {
       // Clean up rate limit data
       socketRateLimit.delete(socket.id)
       
-      // Notify others about user leaving
-      socket.broadcast.emit('user-left', {
-        userId: disconnectedUser.id,
-        userName: disconnectedUser.name,
-        timestamp: Date.now()
-      })
+      // Update online users count for all clients
+      io.emit('user-count', connectedUsers.size)
       
-      // Update online users list for all clients
-      io.emit('online-users', getUserList())
+      console.log(`${disconnectedUser.name} left. Total users: ${connectedUsers.size}`)
     }
   })
 })
@@ -281,7 +335,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     connectedUsers: connectedUsers.size,
-    totalShares: recentShares.length
+    hasSharedText: !!currentSharedText,
+    hasSharedFile: !!currentSharedFile
   })
 })
 
@@ -289,13 +344,17 @@ app.get('/health', (req, res) => {
 app.get('/api/stats', (req, res) => {
   res.json({
     connectedUsers: connectedUsers.size,
-    totalShares: recentShares.length,
-    recentShares: recentShares.slice(0, 10).map(share => ({
-      type: share.type,
-      fileName: share.fileName,
-      userName: share.userName,
-      timestamp: share.timestamp
-    }))
+    currentSharedText: currentSharedText ? {
+      userName: currentSharedText.userName,
+      timestamp: currentSharedText.timestamp,
+      contentLength: currentSharedText.content.length
+    } : null,
+    currentSharedFile: currentSharedFile ? {
+      fileName: currentSharedFile.fileName,
+      userName: currentSharedFile.userName,
+      timestamp: currentSharedFile.timestamp,
+      fileSize: currentSharedFile.fileSize
+    } : null
   })
 })
 

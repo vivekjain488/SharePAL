@@ -11,9 +11,8 @@ import { copyToClipboard } from '../utils/helpers.js'
 import toast from 'react-hot-toast'
 
 const CodeEditor = () => {
-  const { currentCode, setCurrentCode, shareCode, isConnected } = useApp()
+  const { currentCode, setCurrentCode, shareCode, isConnected, isSharing } = useApp()
   const [language, setLanguage] = useState('javascript')
-  const [isSharing, setIsSharing] = useState(false)
   const editorRef = useRef(null)
 
   const languages = {
@@ -39,14 +38,15 @@ const CodeEditor = () => {
       return
     }
 
-    setIsSharing(true)
     try {
       await shareCode(currentCode, language, `shared-${language}`)
-      toast.success('Code shared successfully!')
+      toast.success('Code shared successfully!', {
+        icon: '🚀',
+        duration: 3000
+      })
     } catch (error) {
-      toast.error('Failed to share code')
-    } finally {
-      setIsSharing(false)
+      console.error('Share error:', error)
+      toast.error(error.message || 'Failed to share code')
     }
   }
 
@@ -195,7 +195,14 @@ const CodeEditor = () => {
             disabled={!currentCode.trim() || !isConnected || isSharing}
             className="px-6 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
           >
-            {isSharing ? 'Sharing...' : 'Share Code'}
+            {isSharing ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Sharing...</span>
+              </div>
+            ) : (
+              'Share Code'
+            )}
           </button>
         </div>
       </div>
