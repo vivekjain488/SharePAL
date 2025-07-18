@@ -23,6 +23,7 @@
 @layer components {
   .glass-morphism {
     @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
   }
   
   .gradient-bg {
@@ -66,9 +67,10 @@
   }
 }
 
-/* Custom scrollbar */
+/* Enhanced scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -77,30 +79,91 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 1), rgba(139, 92, 246, 1));
 }
 
-/* CodeMirror customization */
+/* Enhanced CodeMirror customization */
 .cm-editor {
   border-radius: 8px;
   height: 100% !important;
+  font-size: 14px;
 }
 
 .cm-editor.cm-focused {
   outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 .cm-scroller {
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Monaco', 'Consolas', monospace;
+  line-height: 1.6;
 }
 
-/* Toast customization */
+.cm-content {
+  padding: 16px;
+}
+
+.cm-line {
+  padding: 0 16px;
+}
+
+/* Enhanced glass morphism for buttons */
+.glass-morphism:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+}
+
+/* Improved toast styling */
 .toaster {
   --toaster-font-family: system-ui, -apple-system, sans-serif;
   z-index: 100;
+}
+
+/* Enhanced drag and drop styling */
+.drag-active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* File type indicators */
+.file-type-indicator {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-type-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  border-radius: inherit;
+}
+
+/* Enhanced focus states */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Loading animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
