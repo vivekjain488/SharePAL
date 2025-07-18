@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 const FileUpload = () => {
   const { shareFile, isConnected, sharedFile, clearSharedFile, isSharing } = useApp()
   const [isDragging, setIsDragging] = useState(false)
-  const [uploadedFile, setUploadedFile] = useState(null)
+  const [uploadedFiles, setUploadedFiles] = useState([]) // Changed to array for multiple files
   const [isViewingShared, setIsViewingShared] = useState(false)
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false)
 
@@ -38,7 +38,19 @@ const FileUpload = () => {
       return
     }
 
-    setUploadedFile(file)
+    // Check if file already exists
+    const existingFile = uploadedFiles.find(f => f.name === file.name && f.size === file.size)
+    if (existingFile) {
+      toast.error('File already added')
+      return
+    }
+
+    // Add file to the list
+    setUploadedFiles(prev => [...prev, file])
+    toast.success(`${file.name} added successfully!`, {
+      icon: '📎',
+      duration: 2000
+    })
   }
 
   const handleFileInputChange = (e) => {
@@ -49,8 +61,8 @@ const FileUpload = () => {
   }
 
   const handleShare = async () => {
-    if (!uploadedFile) {
-      toast.error('Please select a file first')
+    if (uploadedFiles.length === 0) {
+      toast.error('Please select at least one file first')
       return
     }
 
@@ -60,12 +72,14 @@ const FileUpload = () => {
     }
 
     try {
-      await shareFile(uploadedFile)
+      // Share the most recently added file
+      const latestFile = uploadedFiles[uploadedFiles.length - 1]
+      await shareFile(latestFile)
       toast.success('File shared successfully!', {
         icon: '🚀',
         duration: 3000
       })
-      setUploadedFile(null)
+      // DON'T clear uploadedFiles - keep them for accumulation
       // Switch to viewing shared content after sharing
       setIsViewingShared(true)
       setHasAutoSwitched(true)
@@ -75,8 +89,20 @@ const FileUpload = () => {
     }
   }
 
-  const clearFile = () => {
-    setUploadedFile(null)
+  const removeFile = (indexToRemove) => {
+    setUploadedFiles(prev => prev.filter((_, index) => index !== indexToRemove))
+    toast.success('File removed', {
+      icon: '🗑️',
+      duration: 1500
+    })
+  }
+
+  const clearAllFiles = () => {
+    setUploadedFiles([])
+    toast.success('All files cleared', {
+      icon: '🗑️',
+      duration: 2000
+    })
   }
 
   const handleClearShared = () => {
@@ -163,6 +189,9 @@ const FileUpload = () => {
     return '📄'
   }
 
+  // Calculate total size of all uploaded files
+  const totalSize = uploadedFiles.reduce((total, file) => total + file.size, 0)
+
   // Determine if we should show shared content
   const showSharedContent = isViewingShared && sharedFile
 
@@ -240,16 +269,18 @@ const FileUpload = () => {
                 <span>{new Date(sharedFile.timestamp).toLocaleTimeString()}</span>
               </>
             ) : (
-              uploadedFile ? formatFileSize(uploadedFile.size) : 'No file selected'
+              uploadedFiles.length > 0 
+                ? `${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''} • ${formatFileSize(totalSize)}`
+                : 'No files selected'
             )}
           </div>
           
-          {uploadedFile && !isViewingShared && (
+          {uploadedFiles.length > 0 && !isViewingShared && (
             <button
-              onClick={clearFile}
+              onClick={clearAllFiles}
               className="text-red-400 hover:text-red-300 text-sm px-3 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
             >
-              Clear
+              Clear All
             </button>
           )}
         </div>
@@ -299,7 +330,7 @@ const FileUpload = () => {
                 className="h-full"
               >
                 <AnimatePresence mode="wait">
-                  {!uploadedFile ? (
+                  {uploadedFiles.length === 0 ? (
                     <motion.div
                       key="upload-area"
                       initial={{ opacity: 0 }}
@@ -321,13 +352,13 @@ const FileUpload = () => {
                           {isDragging ? '⬇️' : '📁'}
                         </div>
                         <h3 className="text-xl font-semibold text-white mb-2">
-                          {isDragging ? 'Drop your file here!' : 'Upload File'}
+                          {isDragging ? 'Drop your file here!' : 'Upload Files'}
                         </h3>
                         <p className="text-white/60 mb-4">
                           Drag & drop or click to browse
                         </p>
                         <div className="text-sm text-white/50 bg-white/5 px-4 py-2 rounded">
-                          Maximum file size: 10MB
+                          Maximum file size: 10MB each
                         </div>
                         <input
                           type="file"
@@ -339,30 +370,69 @@ const FileUpload = () => {
                     </motion.div>
                   ) : (
                     <motion.div
-                      key="file-preview"
+                      key="files-list"
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      className="h-full flex flex-col p-4"
+                      className="h-full flex flex-col"
                     >
-                      <div className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg mb-4">
-                        <div className="text-4xl">
-                          {getFileIcon(uploadedFile)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-white font-medium truncate">
-                            {uploadedFile.name}
-                          </h4>
-                          <p className="text-white/60 text-sm">
-                            {formatFileSize(uploadedFile.size)}
-                          </p>
-                        </div>
+                      {/* Files List */}
+                      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                        {uploadedFiles.map((file, index) => (
+                          <motion.div
+                            key={`${file.name}-${index}`}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
+                          >
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <div className="text-2xl flex-shrink-0">
+                                {getFileIcon(file)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-white font-medium truncate text-sm">
+                                  {file.name}
+                                </h4>
+                                <p className="text-white/60 text-xs">
+                                  {formatFileSize(file.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => removeFile(index)}
+                              className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              Remove
+                            </button>
+                          </motion.div>
+                        ))}
                       </div>
 
-                      <div className="flex-1 bg-white/5 rounded-lg p-4 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">✅</div>
-                          <p className="text-white/80">File ready to share</p>
+                      {/* Add More Files Area */}
+                      <div className="border-t border-white/10 pt-2">
+                        <div
+                          className={`relative border border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${
+                            isDragging 
+                              ? 'border-blue-400 bg-blue-500/10' 
+                              : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+                          }`}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                        >
+                          <div className="text-2xl mb-2">
+                            {isDragging ? '⬇️' : '➕'}
+                          </div>
+                          <p className="text-white/60 text-sm">
+                            {isDragging ? 'Drop to add more files' : 'Click or drag to add more files'}
+                          </p>
+                          <input
+                            type="file"
+                            onChange={handleFileInputChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            accept="*/*"
+                          />
                         </div>
                       </div>
                     </motion.div>
@@ -408,7 +478,7 @@ const FileUpload = () => {
           ) : (
             <button
               onClick={handleShare}
-              disabled={!uploadedFile || !isConnected || isSharing}
+              disabled={uploadedFiles.length === 0 || !isConnected || isSharing}
               className="px-6 py-2 text-sm bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
             >
               {isSharing ? (
@@ -417,7 +487,9 @@ const FileUpload = () => {
                   <span>Sharing...</span>
                 </div>
               ) : (
-                'Share File'
+                uploadedFiles.length > 0 
+                  ? `Share Latest File (${uploadedFiles[uploadedFiles.length - 1]?.name?.slice(0, 20)}${uploadedFiles[uploadedFiles.length - 1]?.name?.length > 20 ? '...' : ''})`
+                  : 'Share File'
               )}
             </button>
           )}
