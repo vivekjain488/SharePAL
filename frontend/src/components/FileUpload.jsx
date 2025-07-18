@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../context/AppContext.jsx'
 import { validateFile, formatFileSize } from '../utils/helpers.js'
@@ -8,6 +8,7 @@ const FileUpload = () => {
   const { shareFile, isConnected, sharedFile, clearSharedFile, isSharing } = useApp()
   const [isDragging, setIsDragging] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
+  const [viewMode, setViewMode] = useState('upload') // 'upload' or 'shared'
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault()
@@ -64,6 +65,8 @@ const FileUpload = () => {
         duration: 3000
       })
       setUploadedFile(null)
+      // Switch to shared view after successful share
+      setViewMode('shared')
     } catch (error) {
       console.error('Share error:', error)
       toast.error(error.message || 'Failed to share file')
@@ -80,6 +83,7 @@ const FileUpload = () => {
       icon: '🗑️',
       duration: 2000
     })
+    setViewMode('upload')
   }
 
   const handleDownloadShared = () => {
@@ -101,6 +105,25 @@ const FileUpload = () => {
       toast.error('Failed to download file')
     }
   }
+
+  const handleBackToUpload = () => {
+    setViewMode('upload')
+  }
+
+  const handleViewShared = () => {
+    setViewMode('shared')
+  }
+
+  // Auto-switch to shared view when new content is shared by others
+  useEffect(() => {
+    if (sharedFile && viewMode === 'upload') {
+      // Only auto-switch if we're not the one who shared
+      const currentUser = localStorage.getItem('sharepal-username') || 'User'
+      if (sharedFile.userName !== currentUser) {
+        setViewMode('shared')
+      }
+    }
+  }, [sharedFile, viewMode])
 
   const getFileIcon = (file) => {
     if (!file) return '📄'
@@ -128,28 +151,80 @@ const FileUpload = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* File Upload Section */}
-      <motion.div 
-        className="glass-morphism rounded-lg p-6 shadow-2xl border border-white/20 hover:border-white/30 transition-all duration-300"
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/20">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-orange-500 rounded-full shadow-lg shadow-orange-500/50"></div>
-              <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-lg shadow-yellow-500/50"></div>
-              <div className="w-3 h-3 bg-red-500 rounded-full shadow-lg shadow-red-500/50"></div>
-            </div>
-            <h2 className="text-xl font-semibold text-white">
-              File Upload
-            </h2>
+    <motion.div 
+      className="glass-morphism rounded-lg p-6 shadow-2xl border border-white/20 hover:border-white/30 transition-all duration-300"
+      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.1 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/20">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedFile 
+                ? 'bg-blue-500 shadow-blue-500/50 animate-pulse' 
+                : 'bg-orange-500 shadow-orange-500/50'
+            }`}></div>
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedFile 
+                ? 'bg-cyan-500 shadow-cyan-500/50 animate-pulse' 
+                : 'bg-yellow-500 shadow-yellow-500/50'
+            }`}></div>
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedFile 
+                ? 'bg-teal-500 shadow-teal-500/50 animate-pulse' 
+                : 'bg-red-500 shadow-red-500/50'
+            }`}></div>
+          </div>
+          <h2 className={`text-xl font-semibold ${
+            viewMode === 'shared' && sharedFile ? 'text-blue-300' : 'text-white'
+          }`}>
+            {viewMode === 'shared' && sharedFile ? 'Shared File' : 'File Upload'}
+          </h2>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          {/* View Toggle Buttons */}
+          <div className="flex items-center space-x-1 bg-white/5 rounded-lg p-1">
+            <button
+              onClick={handleBackToUpload}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                viewMode === 'upload' 
+                  ? 'bg-white/20 text-white' 
+                  : 'text-white/60 hover:text-white/80'
+              }`}
+            >
+              Upload
+            </button>
+            {sharedFile && (
+              <button
+                onClick={handleViewShared}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'shared' 
+                    ? 'bg-blue-500/30 text-blue-300' 
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+              >
+                Shared
+              </button>
+            )}
           </div>
           
-          {uploadedFile && (
+          {/* File Info */}
+          <div className="text-sm text-white/60 px-3 py-1 bg-white/10 rounded">
+            {viewMode === 'shared' && sharedFile ? (
+              <>
+                <span>by {sharedFile.userName}</span>
+                <span className="mx-2">•</span>
+                <span>{new Date(sharedFile.timestamp).toLocaleTimeString()}</span>
+              </>
+            ) : (
+              uploadedFile ? formatFileSize(uploadedFile.size) : 'No file selected'
+            )}
+          </div>
+          
+          {uploadedFile && viewMode === 'upload' && (
             <button
               onClick={clearFile}
               className="text-red-400 hover:text-red-300 text-sm px-3 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
@@ -158,182 +233,195 @@ const FileUpload = () => {
             </button>
           )}
         </div>
-        
-        {/* Upload Area */}
-        <div className="h-64 mb-4">
+      </div>
+      
+      {/* Content Area */}
+      <div className="h-64 mb-4">
+        <div className={`h-full relative rounded-lg border overflow-hidden ${
+          viewMode === 'shared' && sharedFile 
+            ? 'border-blue-500/20 bg-blue-500/5' 
+            : 'border-white/10 bg-black/20'
+        }`}>
           <AnimatePresence mode="wait">
-            {!uploadedFile ? (
+            {viewMode === 'upload' ? (
               <motion.div
-                key="upload-area"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                key="upload"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
                 className="h-full"
               >
-                <div
-                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 h-full flex flex-col items-center justify-center cursor-pointer ${
-                    isDragging 
-                      ? 'border-blue-400 bg-blue-500/10' 
-                      : 'border-white/30 hover:border-white/50 hover:bg-white/5'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <div className="text-5xl mb-4">
-                    {isDragging ? '⬇️' : '📁'}
-                  </div>
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    {isDragging ? 'Drop your file here!' : 'Upload File'}
-                  </h3>
-                  <p className="text-white/60 mb-4">
-                    Drag & drop or click to browse
-                  </p>
-                  <div className="text-sm text-white/50 bg-white/5 px-4 py-2 rounded">
-                    Maximum file size: 10MB
-                  </div>
-                  <input
-                    type="file"
-                    onChange={handleFileInputChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    accept="*/*"
-                  />
-                </div>
+                <AnimatePresence mode="wait">
+                  {!uploadedFile ? (
+                    <motion.div
+                      key="upload-area"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="h-full"
+                    >
+                      <div
+                        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 h-full flex flex-col items-center justify-center cursor-pointer ${
+                          isDragging 
+                            ? 'border-blue-400 bg-blue-500/10' 
+                            : 'border-white/30 hover:border-white/50 hover:bg-white/5'
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        <div className="text-5xl mb-4">
+                          {isDragging ? '⬇️' : '📁'}
+                        </div>
+                        <h3 className="text-xl font-semibold text-white mb-2">
+                          {isDragging ? 'Drop your file here!' : 'Upload File'}
+                        </h3>
+                        <p className="text-white/60 mb-4">
+                          Drag & drop or click to browse
+                        </p>
+                        <div className="text-sm text-white/50 bg-white/5 px-4 py-2 rounded">
+                          Maximum file size: 10MB
+                        </div>
+                        <input
+                          type="file"
+                          onChange={handleFileInputChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          accept="*/*"
+                        />
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="file-preview"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="h-full flex flex-col p-4"
+                    >
+                      <div className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg mb-4">
+                        <div className="text-4xl">
+                          {getFileIcon(uploadedFile)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-white font-medium truncate">
+                            {uploadedFile.name}
+                          </h4>
+                          <p className="text-white/60 text-sm">
+                            {formatFileSize(uploadedFile.size)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 bg-white/5 rounded-lg p-4 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-4xl mb-2">✅</div>
+                          <p className="text-white/80">File ready to share</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ) : (
               <motion.div
-                key="file-preview"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="h-full flex flex-col"
+                key="shared"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+                className="h-full"
               >
-                <div className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg mb-4">
-                  <div className="text-4xl">
-                    {getFileIcon(uploadedFile)}
+                {sharedFile ? (
+                  <div className="h-full p-6 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-6xl mb-4">
+                        {getFileIcon(sharedFile)}
+                      </div>
+                      <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                        {sharedFile.fileName}
+                      </h3>
+                      <p className="text-blue-300/60 text-sm mb-4">
+                        {formatFileSize(sharedFile.fileSize)}
+                      </p>
+                      <div className="text-blue-300/80 text-sm bg-blue-500/20 px-3 py-1 rounded">
+                        {sharedFile.fileType}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-medium truncate">
-                      {uploadedFile.name}
-                    </h4>
-                    <p className="text-white/60 text-sm">
-                      {formatFileSize(uploadedFile.size)}
-                    </p>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-white/60">
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📁</div>
+                      <p>No shared file available</p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex-1 bg-white/5 rounded-lg p-4 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">✅</div>
-                    <p className="text-white/80">File ready to share</p>
-                  </div>
-                </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-white/60 text-sm">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-          </div>
-          
-          <button
-            onClick={handleShare}
-            disabled={!uploadedFile || !isConnected || isSharing}
-            className="px-6 py-2 text-sm bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
-          >
-            {isSharing ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                <span>Sharing...</span>
-              </div>
-            ) : (
-              'Share File'
-            )}
-          </button>
+      {/* Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2 text-white/60 text-sm">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+          {viewMode === 'shared' && sharedFile && (
+            <>
+              <span className="mx-2">•</span>
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-blue-300/80">Live shared file</span>
+            </>
+          )}
         </div>
-      </motion.div>
-
-      {/* Shared File Display */}
-      <AnimatePresence>
-        {sharedFile && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="glass-morphism rounded-lg p-6 shadow-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-cyan-500/10"
-          >
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-blue-500/20">
-              <div className="flex items-center space-x-4">
+        
+        <div className="flex items-center space-x-2">
+          {viewMode === 'upload' ? (
+            <button
+              onClick={handleShare}
+              disabled={!uploadedFile || !isConnected || isSharing}
+              className="px-6 py-2 text-sm bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+            >
+              {isSharing ? (
                 <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full shadow-lg shadow-blue-500/50 animate-pulse"></div>
-                  <div className="w-3 h-3 bg-cyan-500 rounded-full shadow-lg shadow-cyan-500/50 animate-pulse"></div>
-                  <div className="w-3 h-3 bg-teal-500 rounded-full shadow-lg shadow-teal-500/50 animate-pulse"></div>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Sharing...</span>
                 </div>
-                <h2 className="text-xl font-semibold text-blue-300">
-                  Shared File
-                </h2>
-              </div>
+              ) : (
+                'Share File'
+              )}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleDownloadShared}
+                disabled={!sharedFile}
+                className="px-4 py-2 text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded transition-colors disabled:opacity-50"
+              >
+                Download
+              </button>
               
-              <div className="flex items-center space-x-3">
-                <div className="text-sm text-blue-300/80 px-3 py-1 bg-blue-500/20 rounded">
-                  by {sharedFile.userName}
-                </div>
-                <div className="text-sm text-blue-300/60 px-3 py-1 bg-blue-500/10 rounded">
-                  {new Date(sharedFile.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            </div>
-
-            <div className="h-64 mb-4">
-              <div className="h-full bg-blue-500/5 rounded-lg border border-blue-500/20 p-6 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-6xl mb-4">
-                    {getFileIcon(sharedFile)}
-                  </div>
-                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
-                    {sharedFile.fileName}
-                  </h3>
-                  <p className="text-blue-300/60 text-sm mb-4">
-                    {formatFileSize(sharedFile.fileSize)}
-                  </p>
-                  <div className="text-blue-300/80 text-sm bg-blue-500/20 px-3 py-1 rounded">
-                    {sharedFile.fileType}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-blue-300/60 text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span>Live shared file</span>
-              </div>
+              <button
+                onClick={handleClearShared}
+                disabled={!sharedFile}
+                className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors disabled:opacity-50"
+              >
+                Clear Shared
+              </button>
               
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleDownloadShared}
-                  className="px-4 py-2 text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded transition-colors"
-                >
-                  Download
-                </button>
-                
-                <button
-                  onClick={handleClearShared}
-                  className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors"
-                >
-                  Clear Shared
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              <button
+                onClick={handleBackToUpload}
+                className="px-6 py-2 text-sm bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Back to Upload
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </motion.div>
   )
 }
 

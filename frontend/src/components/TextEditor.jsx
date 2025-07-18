@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 
 const TextEditor = () => {
   const { currentCode, setCurrentCode, shareText, isConnected, sharedText, copySharedText, clearSharedText, isSharing } = useApp()
+  const [viewMode, setViewMode] = useState('editor') // 'editor' or 'shared'
   const editorRef = useRef(null)
 
   const handleTextChange = useCallback((value) => {
@@ -31,6 +32,8 @@ const TextEditor = () => {
         icon: '🚀',
         duration: 3000
       })
+      // Switch to shared view after successful share
+      setViewMode('shared')
     } catch (error) {
       toast.error(error.message || 'Failed to share text')
     }
@@ -61,6 +64,7 @@ const TextEditor = () => {
       icon: '📝',
       duration: 2000
     })
+    setViewMode('editor')
   }
 
   const handleClearShared = () => {
@@ -69,6 +73,15 @@ const TextEditor = () => {
       icon: '🗑️',
       duration: 2000
     })
+    setViewMode('editor')
+  }
+
+  const handleBackToEditor = () => {
+    setViewMode('editor')
+  }
+
+  const handleViewShared = () => {
+    setViewMode('shared')
   }
 
   // Keyboard shortcuts
@@ -90,188 +103,263 @@ const TextEditor = () => {
             e.preventDefault()
             handleClear()
             break
+          case '1':
+            e.preventDefault()
+            setViewMode('editor')
+            break
+          case '2':
+            e.preventDefault()
+            if (sharedText) setViewMode('shared')
+            break
         }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [currentCode, isConnected])
+  }, [currentCode, isConnected, sharedText])
+
+  // Auto-switch to shared view when new content is shared by others
+  useEffect(() => {
+    if (sharedText && viewMode === 'editor') {
+      // Only auto-switch if we're not the one who shared
+      const currentUser = localStorage.getItem('sharepal-username') || 'User'
+      if (sharedText.userName !== currentUser) {
+        setViewMode('shared')
+      }
+    }
+  }, [sharedText, viewMode])
 
   return (
-    <div className="space-y-6">
-      {/* Personal Text Editor */}
-      <motion.div 
-        className="glass-morphism rounded-lg p-6 shadow-2xl border border-white/20 hover:border-white/30 transition-all duration-300"
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/20">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full shadow-lg shadow-blue-500/50"></div>
-              <div className="w-3 h-3 bg-purple-500 rounded-full shadow-lg shadow-purple-500/50"></div>
-              <div className="w-3 h-3 bg-green-500 rounded-full shadow-lg shadow-green-500/50"></div>
-            </div>
-            <h2 className="text-xl font-semibold text-white">
-              Your Text Editor
-            </h2>
-          </div>
-          
-          {/* Character Count */}
-          <div className="text-sm text-white/60 px-3 py-1 bg-white/10 rounded">
-            {currentCode.length} characters
-          </div>
-        </div>
-
-        {/* Editor Area */}
-        <div className="h-64 mb-4">
-          <div className="h-full relative rounded-lg border border-white/10 overflow-hidden bg-black/20">
-            <CodeMirror
-              ref={editorRef}
-              value={currentCode}
-              height="100%"
-              theme={oneDark}
-              onChange={handleTextChange}
-              placeholder="Start typing your text here..."
-              basicSetup={{
-                lineNumbers: true,
-                foldGutter: false,
-                dropCursor: true,
-                allowMultipleSelections: true,
-                indentOnInput: true,
-                bracketMatching: false,
-                closeBrackets: false,
-                autocompletion: false,
-                highlightSelectionMatches: false,
-                tabSize: 2,
-                searchKeymap: true
-              }}
-              className="text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-white/60 text-sm">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-          </div>
-          
+    <motion.div 
+      className="glass-morphism rounded-lg p-6 shadow-2xl border border-white/20 hover:border-white/30 transition-all duration-300"
+      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/20">
+        <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedText 
+                ? 'bg-green-500 shadow-green-500/50 animate-pulse' 
+                : 'bg-blue-500 shadow-blue-500/50'
+            }`}></div>
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedText 
+                ? 'bg-emerald-500 shadow-emerald-500/50 animate-pulse' 
+                : 'bg-purple-500 shadow-purple-500/50'
+            }`}></div>
+            <div className={`w-3 h-3 rounded-full shadow-lg ${
+              viewMode === 'shared' && sharedText 
+                ? 'bg-teal-500 shadow-teal-500/50 animate-pulse' 
+                : 'bg-green-500 shadow-green-500/50'
+            }`}></div>
+          </div>
+          <h2 className={`text-xl font-semibold ${
+            viewMode === 'shared' && sharedText ? 'text-green-300' : 'text-white'
+          }`}>
+            {viewMode === 'shared' && sharedText ? 'Shared Text' : 'Text Editor'}
+          </h2>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          {/* View Toggle Buttons */}
+          <div className="flex items-center space-x-1 bg-white/5 rounded-lg p-1">
             <button
-              onClick={handleCopy}
-              disabled={!currentCode.trim()}
-              className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 text-white rounded transition-colors disabled:opacity-50"
+              onClick={handleBackToEditor}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                viewMode === 'editor' 
+                  ? 'bg-white/20 text-white' 
+                  : 'text-white/60 hover:text-white/80'
+              }`}
             >
-              Copy
+              Editor
             </button>
-            
-            <button
-              onClick={handleClear}
-              disabled={!currentCode.trim()}
-              className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors disabled:opacity-50"
-            >
-              Clear
-            </button>
-            
-            <button
-              onClick={handleShare}
-              disabled={!currentCode.trim() || !isConnected || isSharing}
-              className="px-6 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
-            >
-              {isSharing ? 'Sharing...' : 'Share Text'}
-            </button>
+            {sharedText && (
+              <button
+                onClick={handleViewShared}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'shared' 
+                    ? 'bg-green-500/30 text-green-300' 
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+              >
+                Shared
+              </button>
+            )}
+          </div>
+          
+          {/* Character/Content Info */}
+          <div className="text-sm text-white/60 px-3 py-1 bg-white/10 rounded">
+            {viewMode === 'shared' && sharedText ? (
+              <>
+                <span>by {sharedText.userName}</span>
+                <span className="mx-2">•</span>
+                <span>{new Date(sharedText.timestamp).toLocaleTimeString()}</span>
+              </>
+            ) : (
+              `${currentCode.length} characters`
+            )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Shared Text Display */}
-      <AnimatePresence>
-        {sharedText && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="glass-morphism rounded-lg p-6 shadow-2xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/10"
-          >
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-green-500/20">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full shadow-lg shadow-green-500/50 animate-pulse"></div>
-                  <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/50 animate-pulse"></div>
-                  <div className="w-3 h-3 bg-teal-500 rounded-full shadow-lg shadow-teal-500/50 animate-pulse"></div>
-                </div>
-                <h2 className="text-xl font-semibold text-green-300">
-                  Shared Text
-                </h2>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="text-sm text-green-300/80 px-3 py-1 bg-green-500/20 rounded">
-                  by {sharedText.userName}
-                </div>
-                <div className="text-sm text-green-300/60 px-3 py-1 bg-green-500/10 rounded">
-                  {new Date(sharedText.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            </div>
-
-            <div className="h-64 mb-4">
-              <div className="h-full relative rounded-lg border border-green-500/20 overflow-hidden bg-green-500/5">
+      {/* Content Area */}
+      <div className="h-64 mb-4">
+        <div className={`h-full relative rounded-lg border overflow-hidden ${
+          viewMode === 'shared' && sharedText 
+            ? 'border-green-500/20 bg-green-500/5' 
+            : 'border-white/10 bg-black/20'
+        }`}>
+          <AnimatePresence mode="wait">
+            {viewMode === 'editor' ? (
+              <motion.div
+                key="editor"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="h-full"
+              >
                 <CodeMirror
-                  value={sharedText.content}
+                  ref={editorRef}
+                  value={currentCode}
                   height="100%"
                   theme={oneDark}
-                  editable={false}
+                  onChange={handleTextChange}
+                  placeholder="Start typing your text here..."
                   basicSetup={{
                     lineNumbers: true,
                     foldGutter: false,
-                    dropCursor: false,
-                    allowMultipleSelections: false,
-                    indentOnInput: false,
+                    dropCursor: true,
+                    allowMultipleSelections: true,
+                    indentOnInput: true,
                     bracketMatching: false,
                     closeBrackets: false,
                     autocompletion: false,
                     highlightSelectionMatches: false,
                     tabSize: 2,
-                    searchKeymap: false
+                    searchKeymap: true
                   }}
                   className="text-sm"
                 />
-              </div>
-            </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="shared"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+                className="h-full"
+              >
+                {sharedText ? (
+                  <CodeMirror
+                    value={sharedText.content}
+                    height="100%"
+                    theme={oneDark}
+                    editable={false}
+                    basicSetup={{
+                      lineNumbers: true,
+                      foldGutter: false,
+                      dropCursor: false,
+                      allowMultipleSelections: false,
+                      indentOnInput: false,
+                      bracketMatching: false,
+                      closeBrackets: false,
+                      autocompletion: false,
+                      highlightSelectionMatches: false,
+                      tabSize: 2,
+                      searchKeymap: false
+                    }}
+                    className="text-sm"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-white/60">
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📝</div>
+                      <p>No shared text available</p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-green-300/60 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Live shared content</span>
-              </div>
+      {/* Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2 text-white/60 text-sm">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+          {viewMode === 'shared' && sharedText && (
+            <>
+              <span className="mx-2">•</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-300/80">Live shared content</span>
+            </>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {viewMode === 'editor' ? (
+            <>
+              <button
+                onClick={handleCopy}
+                disabled={!currentCode.trim()}
+                className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 text-white rounded transition-colors disabled:opacity-50"
+              >
+                Copy
+              </button>
               
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleCopyShared}
-                  className="px-4 py-2 text-sm bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded transition-colors"
-                >
-                  Copy to Editor
-                </button>
-                
-                <button
-                  onClick={handleClearShared}
-                  className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors"
-                >
-                  Clear Shared
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              <button
+                onClick={handleClear}
+                disabled={!currentCode.trim()}
+                className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors disabled:opacity-50"
+              >
+                Clear
+              </button>
+              
+              <button
+                onClick={handleShare}
+                disabled={!currentCode.trim() || !isConnected || isSharing}
+                className="px-6 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+              >
+                {isSharing ? 'Sharing...' : 'Share Text'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleCopyShared}
+                disabled={!sharedText}
+                className="px-4 py-2 text-sm bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded transition-colors disabled:opacity-50"
+              >
+                Copy to Editor
+              </button>
+              
+              <button
+                onClick={handleClearShared}
+                disabled={!sharedText}
+                className="px-4 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded transition-colors disabled:opacity-50"
+              >
+                Clear Shared
+              </button>
+              
+              <button
+                onClick={handleBackToEditor}
+                className="px-6 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Back to Editor
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </motion.div>
   )
 }
 
